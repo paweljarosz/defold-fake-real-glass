@@ -1,0 +1,52 @@
+go.property("model_id", hash("model"))
+go.property("ior", 1.45)
+go.property("refraction_distance", 0.35)
+go.property("depth_thickness_gain", 1.0)
+go.property("constant_thickness", 0.2)
+go.property("use_constant_thickness", 0.0)
+go.property("enable_absorption", 0.0)
+go.property("env_reflection_strength", 0.5)
+go.property("specular_strength", 0.5)
+go.property("surface_smoothness", 0.75)
+go.property("box_projection_amount", 1.0)
+go.property("tint_color", vmath.vector4(1.0, 1.0, 1.0, 1.0))
+go.property("absorption_color", vmath.vector4(0.15, 0.04, 0.01, 1.0))
+
+local function get_model_url(self)
+    return msg.url(nil, go.get_id(), self.model_id)
+end
+
+local function apply(self)
+    local model_url = get_model_url(self)
+
+    go.set(model_url, "tint_color", self.tint_color)
+    go.set(model_url, "absorption_color", self.absorption_color)
+    go.set(model_url, "settings0", vmath.vector4(
+        self.ior,
+        self.refraction_distance,
+        self.depth_thickness_gain,
+        self.constant_thickness
+    ))
+    go.set(model_url, "settings1", vmath.vector4(
+        self.use_constant_thickness,
+        self.enable_absorption,
+        self.env_reflection_strength,
+        self.specular_strength
+    ))
+    go.set(model_url, "settings2", vmath.vector4(
+        self.surface_smoothness,
+        self.box_projection_amount,
+        0.0,
+        0.0
+    ))
+end
+
+function init(self)
+    apply(self)
+end
+
+function on_message(self, message_id, message)
+    if message_id == hash("apply_glass") then
+        apply(self)
+    end
+end

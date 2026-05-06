@@ -1,0 +1,11 @@
+Model Information:
+* title:	Red Wine Glass
+* source:	https://sketchfab.com/3d-models/red-wine-glass-ad6a40bbcf50435bbd41411ece4b9dbe
+* author:	Rylae Shylna (https://sketchfab.com/risteralline)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Red Wine Glass" (https://sketchfab.com/3d-models/red-wine-glass-ad6a40bbcf50435bbd41411ece4b9dbe) by Rylae Shylna (https://sketchfab.com/risteralline) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

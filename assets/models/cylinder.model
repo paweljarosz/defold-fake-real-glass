@@ -1,0 +1,38 @@
+mesh: "/assets/meshes/cylinder.glb"
+name: "unnamed"
+materials {
+  name: "Material"
+  material: "/fake_real_glass/materials/glass_frontface/glass_frontface.material"
+  textures {
+    sampler: "u_scene_color"
+    texture: "/assets/textures/empty_texture_1024x1024.png"
+  }
+  textures {
+    sampler: "u_backface_nd"
+    texture: "/assets/textures/empty_texture_1024x1024.png"
+  }
+  textures {
+    sampler: "u_probe_px"
+    texture: "/assets/textures/empty_texture_1024x1024.png"
+  }
+  textures {
+    sampler: "u_probe_nx"
+    texture: "/assets/textures/empty_texture_1024x1024.png"
+  }
+  textures {
+    sampler: "u_probe_py"
+    texture: "/assets/textures/empty_texture_1024x1024.png"
+  }
+  textures {
+    sampler: "u_probe_ny"
+    texture: "/assets/textures/empty_texture_1024x1024.png"
+  }
+  textures {
+    sampler: "u_probe_pz"
+    texture: "/assets/textures/empty_texture_1024x1024.png"
+  }
+  textures {
+    sampler: "u_probe_nz"
+    texture: "/assets/textures/empty_texture_1024x1024.png"
+  }
+}

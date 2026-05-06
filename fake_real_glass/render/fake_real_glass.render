@@ -1,0 +1,5 @@
+script: "/fake_real_glass/render/fake_real_glass.render_script"
+render_resources {
+  name: "glass_backface_override"
+  path: "/fake_real_glass/materials/glass_backface/glass_backface.material"
+}

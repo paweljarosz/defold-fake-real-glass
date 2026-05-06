@@ -1,0 +1,13 @@
+name: "glass_backface_override"
+tags: "glass"
+vertex_program: "/fake_real_glass/materials/glass_backface/glass_backface.vp"
+fragment_program: "/fake_real_glass/materials/glass_backface/glass_backface.fp"
+vertex_space: VERTEX_SPACE_LOCAL
+vertex_constants {
+  name: "view"
+  type: CONSTANT_TYPE_VIEW
+}
+vertex_constants {
+  name: "view_proj"
+  type: CONSTANT_TYPE_VIEWPROJ
+}

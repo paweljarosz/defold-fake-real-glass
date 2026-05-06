@@ -1,0 +1,39 @@
+#version 140
+
+// Vertex stage for the hidden back-face capture pass.
+//
+// This pass is intentionally minimal because it does not shade the glass.
+// It only prepares the two values the visible front-face shader needs later:
+// 1. back-face world normal
+// 2. back-face view-space depth
+
+// Standard Defold model attributes.
+in vec4 position;
+in vec3 normal;
+in mat4 mtx_world;
+in mat4 mtx_normal;
+
+// Data written into the back-face lookup texture by glass_backface.fp.
+out vec3 var_world_normal;
+out float var_view_depth;
+
+// Active camera matrices from the render script.
+uniform vs_uniforms
+{
+    mat4 view;
+    mat4 view_proj;
+};
+
+void main()
+{
+    vec4 world_pos4 = mtx_world * vec4(position.xyz, 1.0);
+    vec4 view_pos4  = view * world_pos4;
+
+    // This pass is intentionally minimal: it only captures the world-space
+    // back-face normal and view-space depth for the front shader to reuse.
+    // The render script culls front faces during this draw, so the geometry
+    // reaching this shader already represents the "exit side" of the glass.
+    gl_Position      = view_proj * world_pos4;
+    var_world_normal = normalize((mtx_normal * vec4(normal, 0.0)).xyz);
+    var_view_depth   = -view_pos4.z;
+}

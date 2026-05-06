@@ -1,0 +1,55 @@
+#version 140
+
+// Vertex stage for the visible glass pass.
+//
+// Its job is mostly bookkeeping:
+// 1. transform positions/normals to world space
+// 2. also derive a few view-space helpers for the editor preview path
+// 3. precompute screen UV + view depth so the fragment shader can query the
+//    back-face texture without repeating the same work per helper function
+
+// Standard Defold model attributes.
+in vec4 position;
+in vec3 normal;
+in vec2 texcoord0;
+in mat4 mtx_world;
+in mat4 mtx_normal;
+
+// Values forwarded to the fragment shader.
+out vec3 var_world_pos;
+out vec3 var_world_normal;
+out vec3 var_view_normal;
+out vec3 var_view_dir;
+out vec2 var_screen_uv;
+out float var_view_depth;
+out vec2 var_texcoord0;
+
+// The render module supplies the active camera matrices every frame.
+uniform vs_uniforms
+{
+    mat4 view;
+    mat4 view_proj;
+};
+
+void main()
+{
+    vec4 world_pos4 = mtx_world * vec4(position.xyz, 1.0);
+    vec4 view_pos4  = view * world_pos4;
+    vec3 world_normal = normalize((mtx_normal * vec4(normal, 0.0)).xyz);
+
+    // Carry both world-space and view-space values forward:
+    // the runtime refraction path works in world space, while the editor
+    // fallback path uses a lightweight view-space approximation.
+    gl_Position      = view_proj * world_pos4;
+    var_world_pos    = world_pos4.xyz;
+    var_world_normal = world_normal;
+    var_view_normal  = normalize((view * vec4(world_normal, 0.0)).xyz);
+    var_view_dir     = normalize(-view_pos4.xyz);
+
+    // Precompute the current pixel's screen position in UV space plus the
+    // front-face depth in view space. The fragment shader compares this depth
+    // against the captured back-face depth to estimate glass thickness.
+    var_screen_uv    = gl_Position.xy / max(gl_Position.w, 1e-6) * 0.5 + 0.5;
+    var_view_depth   = -view_pos4.z;
+    var_texcoord0    = texcoord0;
+}
