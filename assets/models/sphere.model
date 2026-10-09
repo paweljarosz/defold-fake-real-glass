@@ -2,9 +2,9 @@ mesh: "/builtins/assets/gltf/sphere.gltf"
 name: "unnamed"
 materials {
   name: "default"
-  material: "/builtins/materials/model_instanced.material"
+  material: "/builtins/materials/model_instanced_lit.material"
   textures {
     sampler: "tex0"
-    texture: "/assets/textures/empty_texture_1024x1024.png"
+    texture: "/assets/textures/white.png"
   }
 }

@@ -1,11 +1,26 @@
 #version 140
+#ifndef EDITOR
+#extension GL_ARB_shading_language_420pack : require
+#endif
+
+#ifdef EDITOR
+in vec3 var_preview_normal;
+uniform fs_uniforms { vec4 tint_color; };
+out vec4 color_out;
+void main()
+{
+    vec3 N = normalize(var_preview_normal);
+    float diffuse = max(dot(N, normalize(vec3(-0.4, 0.8, 0.5))), 0.0);
+    color_out = vec4(max(tint_color.rgb, vec3(0.45)) * (0.45 + 0.55 * diffuse), 1.0);
+}
+#else
 
 // Visible glass front-face shader.
 //
 // Runtime inputs come from the Fake Real Glass render module:
 // 1. u_scene_color  : opaque scene captured before drawing the glass
 // 2. u_backface_nd  : glass back-face normal/depth capture
-// 3. u_probe_*      : optional six-face local reflection probe
+// 3. u_probe        : local reflection cubemap
 //
 // The fragment shader traces a simplified "enter glass -> travel inside ->
 // leave glass" path in screen space:
@@ -18,9 +33,10 @@
 
 // Per-vertex data from glass_frontface.vp.
 // Most of the physical approximation is done in world space, but the editor
-// preview path also keeps a lightweight set of view-space values around.
-// Otherwise the editor preview would not be faked. If it's not an issue, you can remove it.
+// preview path displays the mesh as a solid shape with simple lighting.
 in vec3 var_world_pos;
+in vec3 var_sphere_center;
+in float var_sphere_radius;
 in vec3 var_world_normal;
 in vec3 var_view_normal;
 in vec3 var_view_dir;
@@ -31,12 +47,12 @@ in vec2 var_texcoord0;
 // Textures supplied by the render script.
 uniform sampler2D u_scene_color;
 uniform sampler2D u_backface_nd; // RGB = back-face world normal, A = back-face view depth
-uniform sampler2D u_probe_px;
-uniform sampler2D u_probe_nx;
-uniform sampler2D u_probe_py;
-uniform sampler2D u_probe_ny;
-uniform sampler2D u_probe_pz;
-uniform sampler2D u_probe_nz;
+
+uniform samplerCube u_probe;
+
+#define MAX_LIGHT_COUNT 8
+in mat4 var_view;
+#include "/fake_real_glass/materials/lighting.glsl"
 
 // Per-draw constants supplied by the material and the render module.
 uniform fs_uniforms
@@ -48,35 +64,14 @@ uniform fs_uniforms
     vec4 absorption_color;
     vec4 settings0;      // x = ior, y = refraction_distance, z = depth_thickness_gain, w = constant_thickness
     vec4 settings1;      // x = use_constant_thickness, y = enable_absorption, z = env_reflection_strength, w = specular_strength
-    vec4 settings2;      // x = surface_smoothness, y = box_projection_amount
-    vec4 light;          // xyz = world position, w = specular_power
+    vec4 settings2;      // x = smoothness, y = box projection, z = transmission, w = minimum reflection
+    vec4 specular_params; // x = specular power
     vec4 probe_center;   // xyz = local probe center
     vec4 probe_extents;  // xyz = local probe half-extents for box projection
     vec4 probe_params;   // x = 1 / probe_size, y = max blur radius in texels
 };
 
 out vec4 color_out;
-
-// Editor preview fallback used when the render script has not yet bound the
-// live scene/back-face textures. It gives the material a readable glass look
-// in the editor without affecting the runtime path.
-vec3 sample_preview_environment(vec3 dir)
-{
-    vec3 n = normalize(dir);
-    float up = clamp(n.y * 0.5 + 0.5, 0.0, 1.0);
-
-    vec3 ground = vec3(0.15, 0.14, 0.13);
-    vec3 horizon = vec3(0.58, 0.64, 0.72);
-    vec3 sky = vec3(0.82, 0.90, 0.98);
-
-    vec3 env = mix(ground, horizon, smoothstep(0.05, 0.45, up));
-    env = mix(env, sky, smoothstep(0.55, 1.0, up));
-
-    float highlight = smoothstep(0.9, 1.0, 1.0 - abs(n.x)) * smoothstep(0.25, 0.95, up);
-    env += vec3(0.10, 0.09, 0.07) * highlight;
-
-    return env;
-}
 
 vec2 project_to_uv(vec3 world_pos)
 {
@@ -85,34 +80,6 @@ vec2 project_to_uv(vec3 world_pos)
     vec4 clip = view_proj * vec4(world_pos, 1.0);
     vec2 ndc  = clip.xy / max(clip.w, 1e-6);
     return ndc * 0.5 + 0.5;
-}
-
-vec3 sample_probe_face(sampler2D face_tex, vec3 dir, vec3 forward, vec3 right, vec3 up, float roughness)
-{
-    // The probe is stored as six 2D render targets. Project the direction onto
-    // the selected face using that face's basis vectors, then apply a small
-    // gather blur so rough surfaces do not look mirror-sharp.
-    float denom = max(dot(dir, forward), 1e-6);
-    vec2 uv = vec2(dot(dir, right), dot(dir, up)) / denom;
-    uv = clamp(uv * 0.5 + 0.5, 0.001, 0.999);
-
-    float blur_radius = clamp(roughness, 0.0, 1.0) * probe_params.y;
-    if (blur_radius < 0.01)
-    {
-        return texture(face_tex, uv).rgb;
-    }
-
-    vec2 texel = vec2(probe_params.x * blur_radius);
-    vec3 color = texture(face_tex, uv).rgb * 0.28;
-    color += texture(face_tex, clamp(uv + vec2( texel.x, 0.0), 0.001, 0.999)).rgb * 0.12;
-    color += texture(face_tex, clamp(uv + vec2(-texel.x, 0.0), 0.001, 0.999)).rgb * 0.12;
-    color += texture(face_tex, clamp(uv + vec2(0.0,  texel.y), 0.001, 0.999)).rgb * 0.12;
-    color += texture(face_tex, clamp(uv + vec2(0.0, -texel.y), 0.001, 0.999)).rgb * 0.12;
-    color += texture(face_tex, clamp(uv + vec2( texel.x,  texel.y), 0.001, 0.999)).rgb * 0.06;
-    color += texture(face_tex, clamp(uv + vec2( texel.x, -texel.y), 0.001, 0.999)).rgb * 0.06;
-    color += texture(face_tex, clamp(uv + vec2(-texel.x,  texel.y), 0.001, 0.999)).rgb * 0.06;
-    color += texture(face_tex, clamp(uv + vec2(-texel.x, -texel.y), 0.001, 0.999)).rgb * 0.06;
-    return color;
 }
 
 vec3 box_project_probe_dir(vec3 ray_origin, vec3 ray_dir, float box_projection_amount)
@@ -125,7 +92,7 @@ vec3 box_project_probe_dir(vec3 ray_origin, vec3 ray_dir, float box_projection_a
     // If the shaded point is outside the box, the code fades back to the
     // ordinary direction to avoid extreme artifacts.
     vec3 n = normalize(ray_dir);
-    vec3 safe_dir = sign(n) * max(abs(n), vec3(1e-4));
+    vec3 safe_dir = mix(vec3(-1.0), vec3(1.0), step(vec3(0.0), n)) * max(abs(n), vec3(1e-4));
     vec3 center = probe_center.xyz;
     vec3 extents = max(probe_extents.xyz, vec3(1e-4));
     vec3 local_pos = ray_origin - center;
@@ -148,34 +115,30 @@ vec3 box_project_probe_dir(vec3 ray_origin, vec3 ray_dir, float box_projection_a
 
 vec3 sample_probe(vec3 dir, vec3 ray_origin, float roughness, float box_projection_amount)
 {
-    // Pick the dominant cube face after optional box projection.
-    // This is the "manual cubemap lookup" part of the effect.
     vec3 n = box_project_probe_dir(ray_origin, dir, box_projection_amount);
-    vec3 a = abs(n);
+    // Sample directions on the sphere so roughness taps can cross cube edges.
+    vec3 axis = abs(n.y) < 0.99 ? vec3(0, 1, 0) : vec3(1, 0, 0);
+    vec3 tangent = normalize(cross(axis, n));
+    vec3 bitangent = cross(n, tangent);
+    float r = clamp(roughness, 0.0, 1.0);
+    if (r < 0.001) return texture(u_probe, n).rgb;
 
-    if (a.x >= a.y && a.x >= a.z)
+    // Angular blur keeps the same material appearance at any probe resolution.
+    // Distributed taps soften reflections without the old cross-shaped ghosts.
+    float radius = max(0.35 * r * r, r * probe_params.y * probe_params.x * 2.0);
+    vec3 color = texture(u_probe, n).rgb;
+    float total_weight = 1.0;
+    for (int i = 0; i < 24; ++i)
     {
-        if (n.x > 0.0)
-        {
-            return sample_probe_face(u_probe_px, n, vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), vec3(0.0, 1.0, 0.0), roughness);
-        }
-        return sample_probe_face(u_probe_nx, n, vec3(-1.0, 0.0, 0.0), vec3(0.0, 0.0, -1.0), vec3(0.0, 1.0, 0.0), roughness);
+        float distance_squared = (float(i) + 0.5) / 24.0;
+        float angle = float(i) * 2.39996323;
+        vec2 offset = vec2(cos(angle), sin(angle)) * sqrt(distance_squared) * radius;
+        float weight = exp(-2.0 * distance_squared);
+        vec3 sample_direction = n + tangent * offset.x + bitangent * offset.y;
+        color += texture(u_probe, sample_direction).rgb * weight;
+        total_weight += weight;
     }
-
-    if (a.y >= a.x && a.y >= a.z)
-    {
-        if (n.y > 0.0)
-        {
-            return sample_probe_face(u_probe_py, n, vec3(0.0, 1.0, 0.0), vec3(-1.0, 0.0, 0.0), vec3(0.0, 0.0, -1.0), roughness);
-        }
-        return sample_probe_face(u_probe_ny, n, vec3(0.0, -1.0, 0.0), vec3(-1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0), roughness);
-    }
-
-    if (n.z > 0.0)
-    {
-        return sample_probe_face(u_probe_pz, n, vec3(0.0, 0.0, 1.0), vec3(-1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), roughness);
-    }
-    return sample_probe_face(u_probe_nz, n, vec3(0.0, 0.0, -1.0), vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), roughness);
+    return color / total_weight;
 }
 
 float get_reflectance(vec3 i, vec3 t, vec3 n, float ior_a, float ior_b)
@@ -221,6 +184,15 @@ void split_ray(
     }
 }
 
+// Editor preview does not depend on scene lights or runtime capture state.
+vec4 solid_preview()
+{
+    vec3 N = normalize(var_view_normal);
+    float diffuse = max(dot(N, normalize(vec3(-0.4, 0.8, 0.5))), 0.0);
+    vec3 preview_tint = max(tint_color.rgb, vec3(0.45));
+    return vec4(preview_tint * (0.45 + 0.55 * diffuse), 1.0);
+}
+
 void main()
 {
     // Unpack artist/gameplay controls from the material constants.
@@ -237,57 +209,18 @@ void main()
     float box_projection_amount   = settings2.y;
     float reflection_roughness    = 1.0 - surface_smoothness;
 
-    float specular_power = max(light.w, 1.0);
+    float specular_power = mix(4.0, max(specular_params.x, 4.0), surface_smoothness * surface_smoothness);
 
     if (render_state.x < 0.5)
     {
-        // Defold Editor preview path: no scene capture, no back-face pass,
-        // just a compact approximation that keeps the model readable while the
-        // real render pipeline is not running inside the editor preview.
-        vec3 N_preview = normalize(var_view_normal);
-        vec3 I_preview = -normalize(var_view_dir);
-
-        vec3 preview_reflect;
-        vec3 preview_refract;
-        float preview_fresnel;
-        split_ray(I_preview, N_preview, 1.0, ior, preview_reflect, preview_refract, preview_fresnel);
-
-        if (length(preview_refract) < 1e-6)
-        {
-            preview_refract = -I_preview;
-        }
-
-        vec3 transmitted_preview = sample_preview_environment(preview_refract);
-        vec3 reflected_preview = sample_preview_environment(preview_reflect);
-
-        if (enable_absorption > 0.5)
-        {
-            transmitted_preview *= exp(-absorption_color.rgb * max(constant_thickness, 0.001));
-        }
-
-        float preview_reflection_strength = mix(0.2, 1.0, clamp(env_reflection_strength, 0.0, 1.0));
-        vec3 final_preview = mix(
-            transmitted_preview * tint_color.rgb,
-            reflected_preview,
-            preview_fresnel * preview_reflection_strength
-        );
-
-        if (specular_strength > 0.001)
-        {
-            vec3 V_preview = normalize(var_view_dir);
-            vec3 L_preview = normalize(vec3(-0.4, 0.8, 0.5));
-            vec3 H_preview = normalize(V_preview + L_preview);
-            float spec = pow(max(dot(N_preview, H_preview), 0.0), specular_power);
-            final_preview += vec3(spec * specular_strength);
-        }
-
-        color_out = vec4(final_preview, tint_color.a);
+        color_out = solid_preview();
         return;
     }
 
     // Front-surface interaction: split the camera ray into a reflected ray and
     // a refracted ray entering the volume.
-    vec3 N = normalize(var_world_normal);
+    bool sphere = probe_params.z > 0.5;
+    vec3 N = sphere ? normalize(var_world_pos - var_sphere_center) : normalize(var_world_normal);
     vec3 I = normalize(var_world_pos - camera_position.xyz);
 
     vec3 front_reflect;
@@ -318,6 +251,15 @@ void main()
     // March the refracted ray through the volume, then look up the back face
     // again at the estimated internal hit point to find the exit normal.
     vec3 first_intersection_ws = var_world_pos + front_refract * thickness;
+    if (sphere)
+    {
+        // Exact exit from a sphere, rather than a constant-thickness slab.
+        vec3 offset = var_world_pos - var_sphere_center;
+        float b = dot(offset, front_refract);
+        float c = dot(offset, offset) - var_sphere_radius * var_sphere_radius;
+        thickness = max(-b + sqrt(max(b * b - c, 0.0)), 0.0);
+        first_intersection_ws = var_world_pos + front_refract * thickness;
+    }
     vec2 back_uv = clamp(project_to_uv(first_intersection_ws), 0.0, 1.0);
 
     vec4 back_sample = texture(u_backface_nd, back_uv);
@@ -332,6 +274,8 @@ void main()
     {
         back_normal_ws = normalize(back_sample.xyz);
     }
+
+    if (sphere) back_normal_ws = normalize(first_intersection_ws - var_sphere_center);
 
     vec3 back_reflect_inside;
     vec3 exit_refract;
@@ -351,6 +295,12 @@ void main()
     vec2 exit_uv = clamp(project_to_uv(second_intersection_ws), 0.0, 1.0);
 
     vec3 transmitted = texture(u_scene_color, exit_uv).rgb;
+    if (sphere)
+    {
+        // Continue along the outgoing ray in the local environment.
+        // A short screen-space offset cannot represent a spherical glass lens.
+        transmitted = sample_probe(exit_refract, first_intersection_ws, reflection_roughness, box_projection_amount);
+    }
 
     // Reflections come from the local probe. We evaluate both the internal
     // bounce and the front-surface reflection, then weight them by Fresnel.
@@ -358,6 +308,19 @@ void main()
     // without tracing a full physical path.
     vec3 back_reflection = sample_probe(back_reflect_inside, first_intersection_ws, reflection_roughness, box_projection_amount);
     vec3 front_reflection = sample_probe(front_reflect, var_world_pos, reflection_roughness, box_projection_amount);
+
+    if (sphere)
+    {
+        // One internal bounce also leaves through the actual sphere surface.
+        vec3 offset = first_intersection_ws - var_sphere_center;
+        float travel = max(-2.0 * dot(offset, back_reflect_inside), 0.0);
+        vec3 bounce_exit = first_intersection_ws + back_reflect_inside * travel;
+        vec3 bounce_normal = normalize(bounce_exit - var_sphere_center);
+        vec3 bounce_out = refract(back_reflect_inside, -bounce_normal, ior);
+        back_reflection = length(bounce_out) > 1e-6
+            ? sample_probe(bounce_out, bounce_exit, reflection_roughness, box_projection_amount)
+            : vec3(0.0);
+    }
 
     float eff_back_fresnel  = back_fresnel  * env_reflection_strength;
     float eff_front_fresnel = front_fresnel * env_reflection_strength;
@@ -375,18 +338,53 @@ void main()
 
     // First tint/absorb the transmitted contribution, then layer the front
     // reflection on top according to the front-face Fresnel term.
-    vec3 final_rgb = mix(through_glass * tint_color.rgb, front_reflection, eff_front_fresnel);
+    float reflection_weight = clamp(max(eff_front_fresnel, settings2.w), 0.0, 1.0);
+    vec3 body_color = through_glass * tint_color.rgb * clamp(settings2.z, 0.0, 1.0);
+    // Reduced transmission adds a subtle lit body, rather than an invisible
+    // surface when the studio environment is almost black. Fully clear glass
+    // (transmission = 1) keeps the original result.
+    vec3 view_position = (var_view * vec4(var_world_pos, 1.0)).xyz;
+    vec3 view_normal = normalize(mat3(var_view) * N);
+    vec3 body_light = ambient_light() + diffuse_lambert(view_normal, view_position);
+    body_color += tint_color.rgb * body_light * (1.0 - clamp(settings2.z, 0.0, 1.0)) * 0.2;
+    vec3 final_rgb = mix(body_color, front_reflection, reflection_weight);
 
-    // Extra artist-friendly highlight from the provided light position.
+    // Extra artist-friendly highlight from the scene light components.
     // This is not part of the refraction model, it is a direct lighting term.
     if (specular_strength > 0.001)
     {
         vec3 V = normalize(camera_position.xyz - var_world_pos);
-        vec3 L = normalize(light.xyz - var_world_pos);
-        vec3 H = normalize(V + L);
-        float spec = pow(max(dot(N, H), 0.0), specular_power);
-        final_rgb += vec3(spec * specular_strength);
+        for (int i = 0; i < MAX_LIGHT_COUNT; ++i)
+        {
+            if (i >= int(light_info.w)) break;
+            int type = int(lights[i].params.x);
+            vec3 L;
+            float attenuation = 1.0;
+            if (type == LIGHT_DIRECTIONAL)
+                L = normalize(-lights[i].direction_range.xyz);
+            else
+            {
+                vec3 delta = lights[i].position.xyz - var_world_pos;
+                float distance_to_light = length(delta);
+                L = delta / max(distance_to_light, 0.0001);
+                float range = max(lights[i].direction_range.w, 0.0001);
+                attenuation = pow(clamp(1.0 - distance_to_light / range, 0.0, 1.0), 2.0);
+                if (type == LIGHT_SPOT)
+                {
+                    float inner_cos = cos(0.5 * lights[i].params.z - 0.00001);
+                    float outer_cos = cos(0.5 * lights[i].params.w);
+                    attenuation *= smoothstep(outer_cos, inner_cos,
+                        dot(-L, normalize(lights[i].direction_range.xyz)));
+                }
+            }
+            vec3 half_vector = V + L;
+            vec3 H = half_vector / max(length(half_vector), 0.0001);
+            float spec = pow(max(dot(N, H), 0.0), specular_power) * step(0.0001, dot(N, L));
+            final_rgb += lights[i].color.rgb * lights[i].params.y * attenuation * spec * specular_strength;
+        }
     }
 
     color_out = vec4(final_rgb, tint_color.a);
 }
+
+#endif

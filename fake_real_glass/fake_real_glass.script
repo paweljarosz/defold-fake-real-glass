@@ -9,6 +9,8 @@ go.property("env_reflection_strength", 0.5)
 go.property("specular_strength", 0.5)
 go.property("surface_smoothness", 0.75)
 go.property("box_projection_amount", 1.0)
+go.property("transmission", 1.0)
+go.property("reflection_min", 0.0)
 go.property("tint_color", vmath.vector4(1.0, 1.0, 1.0, 1.0))
 go.property("absorption_color", vmath.vector4(0.15, 0.04, 0.01, 1.0))
 
@@ -36,8 +38,8 @@ local function apply(self)
     go.set(model_url, "settings2", vmath.vector4(
         self.surface_smoothness,
         self.box_projection_amount,
-        0.0,
-        0.0
+        self.transmission,
+        self.reflection_min
     ))
 end
 

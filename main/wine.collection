@@ -36,6 +36,11 @@ embedded_instances {
   "    type: PROPERTY_TYPE_NUMBER\n"
   "  }\n"
   "  properties {\n"
+  "    id: \"box_projection_amount\"\n"
+  "    value: \"0.0\"\n"
+  "    type: PROPERTY_TYPE_NUMBER\n"
+  "  }\n"
+  "  properties {\n"
   "    id: \"tint_color\"\n"
   "    value: \"0.9, 0.95, 1.0, 1.0\"\n"
   "    type: PROPERTY_TYPE_VECTOR4\n"
@@ -43,8 +48,9 @@ embedded_instances {
   "}\n"
   ""
   position {
+    x: -2.0
     y: 0.5
-    z: -1.0
+    z: -1.5
   }
 }
 embedded_instances {
@@ -82,6 +88,11 @@ embedded_instances {
   "    type: PROPERTY_TYPE_NUMBER\n"
   "  }\n"
   "  properties {\n"
+  "    id: \"box_projection_amount\"\n"
+  "    value: \"0.0\"\n"
+  "    type: PROPERTY_TYPE_NUMBER\n"
+  "  }\n"
+  "  properties {\n"
   "    id: \"tint_color\"\n"
   "    value: \"0.95, 0.98, 1.0, 1.0\"\n"
   "    type: PROPERTY_TYPE_VECTOR4\n"
@@ -89,7 +100,6 @@ embedded_instances {
   "}\n"
   ""
   position {
-    y: 2.0
     z: -1.0
   }
   scale3 {
@@ -104,14 +114,15 @@ embedded_instances {
   "  id: \"left\"\n"
   "  component: \"/assets/models/sphere.model\"\n"
   "  position {\n"
-  "    x: -2.5\n"
+  "    x: -3.5\n"
   "  }\n"
   "}\n"
   "components {\n"
   "  id: \"right\"\n"
   "  component: \"/assets/models/sphere.model\"\n"
   "  position {\n"
-  "    x: 2.5\n"
+  "    x: 3.5\n"
+  "    y: 1.0\n"
   "  }\n"
   "}\n"
   ""
@@ -128,14 +139,14 @@ embedded_instances {
   "  data: \"aspect_ratio: 1.0\\n"
   "fov: 0.7854\\n"
   "near_z: 0.1\\n"
-  "far_z: 30.0\\n"
+  "far_z: 200.0\\n"
   "auto_aspect_ratio: 1\\n"
   "\"\n"
   "}\n"
   ""
   position {
-    y: 3.5
-    z: 9.0
+    y: 2.0
+    z: 6.0
   }
   rotation {
     x: -0.043619387
@@ -146,7 +157,7 @@ embedded_instances {
   id: "plane"
   data: "components {\n"
   "  id: \"quad\"\n"
-  "  component: \"/assets/models/quad_2x2.model\"\n"
+  "  component: \"/assets/models/floor.model\"\n"
   "}\n"
   ""
   position {
@@ -157,91 +168,9 @@ embedded_instances {
     w: 0.70710677
   }
   scale3 {
-    x: 4.0
-    y: 4.0
-    z: 4.0
-  }
-}
-embedded_instances {
-  id: "plane1"
-  data: "components {\n"
-  "  id: \"quad\"\n"
-  "  component: \"/assets/models/quad_2x2.model\"\n"
-  "}\n"
-  ""
-  position {
-    y: 4.0
-    z: -5.0
-  }
-  scale3 {
-    x: 4.0
-    y: 4.0
-    z: 4.0
-  }
-}
-embedded_instances {
-  id: "plane2"
-  data: "components {\n"
-  "  id: \"quad\"\n"
-  "  component: \"/assets/models/quad_2x2.model\"\n"
-  "}\n"
-  ""
-  position {
-    x: -4.0
-    y: 4.0
-    z: -1.0
-  }
-  rotation {
-    y: 0.70710677
-    w: 0.70710677
-  }
-  scale3 {
-    x: 4.0
-    y: 4.0
-    z: 4.0
-  }
-}
-embedded_instances {
-  id: "plane3"
-  data: "components {\n"
-  "  id: \"quad\"\n"
-  "  component: \"/assets/models/quad_2x2.model\"\n"
-  "}\n"
-  ""
-  position {
-    x: 4.0
-    y: 4.0
-    z: -1.0
-  }
-  rotation {
-    y: -0.70710677
-    w: 0.70710677
-  }
-  scale3 {
-    x: 4.0
-    y: 4.0
-    z: 4.0
-  }
-}
-embedded_instances {
-  id: "plane4"
-  data: "components {\n"
-  "  id: \"quad\"\n"
-  "  component: \"/assets/models/quad_2x2.model\"\n"
-  "}\n"
-  ""
-  position {
-    y: 6.0
-    z: -1.0
-  }
-  rotation {
-    x: 0.70710677
-    w: 0.70710677
-  }
-  scale3 {
-    x: 4.0
-    y: 4.0
-    z: 4.0
+    x: 15.0
+    y: 15.0
+    z: 15.0
   }
 }
 embedded_instances {
@@ -253,16 +182,113 @@ embedded_instances {
   "components {\n"
   "  id: \"glass\"\n"
   "  component: \"/fake_real_glass/fake_real_glass.script\"\n"
+  "  properties {\n"
+  "    id: \"box_projection_amount\"\n"
+  "    value: \"0.0\"\n"
+  "    type: PROPERTY_TYPE_NUMBER\n"
+  "  }\n"
   "}\n"
   ""
   position {
-    x: 0.75
-    y: 1.0
-    z: -2.0
+    x: 2.0
+    y: 0.8
+    z: -1.0
   }
   scale3 {
     x: 1.2
     y: 1.2
     z: 1.2
   }
+}
+embedded_instances {
+  id: "scene_light"
+  data: "embedded_components {\n"
+  "  id: \"light\"\n"
+  "  type: \"point_light\"\n"
+  "  data: \"data {\\n"
+  "  struct {\\n"
+  "    fields {\\n"
+  "      key: \\\"color\\\"\\n"
+  "      value {\\n"
+  "        list {\\n"
+  "          values {\\n"
+  "            number: 1.0\\n"
+  "          }\\n"
+  "          values {\\n"
+  "            number: 1.0\\n"
+  "          }\\n"
+  "          values {\\n"
+  "            number: 1.0\\n"
+  "          }\\n"
+  "        }\\n"
+  "      }\\n"
+  "    }\\n"
+  "    fields {\\n"
+  "      key: \\\"intensity\\\"\\n"
+  "      value {\\n"
+  "        number: 1.0\\n"
+  "      }\\n"
+  "    }\\n"
+  "    fields {\\n"
+  "      key: \\\"range\\\"\\n"
+  "      value {\\n"
+  "        number: 10.0\\n"
+  "      }\\n"
+  "    }\\n"
+  "  }\\n"
+  "}\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    y: 3.0
+    z: 3.0
+  }
+}
+embedded_instances {
+  id: "ambient_light"
+  data: "embedded_components {\n"
+  "  id: \"light\"\n"
+  "  type: \"ambient_light\"\n"
+  "  data: \"data {\\n"
+  "  struct {\\n"
+  "    fields {\\n"
+  "      key: \\\"color\\\"\\n"
+  "      value {\\n"
+  "        list {\\n"
+  "          values {\\n"
+  "            number: 1.0\\n"
+  "          }\\n"
+  "          values {\\n"
+  "            number: 1.0\\n"
+  "          }\\n"
+  "          values {\\n"
+  "            number: 1.0\\n"
+  "          }\\n"
+  "        }\\n"
+  "      }\\n"
+  "    }\\n"
+  "    fields {\\n"
+  "      key: \\\"intensity\\\"\\n"
+  "      value {\\n"
+  "        number: 0.7\\n"
+  "      }\\n"
+  "    }\\n"
+  "  }\\n"
+  "}\\n"
+  "\"\n"
+  "}\n"
+  ""
+}
+embedded_instances {
+  id: "skybox"
+  data: "components {\n"
+  "  id: \"model\"\n"
+  "  component: \"/assets/models/skybox.model\"\n"
+  "}\n"
+  "components {\n"
+  "  id: \"rotation\"\n"
+  "  component: \"/main/skybox.script\"\n"
+  "}\n"
+  ""
 }

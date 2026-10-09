@@ -1,0 +1,18 @@
+-- Degrees per second; 0.5 gives one full turn every twelve minutes.
+go.property("rotation_speed", 0.5)
+
+local function apply_rotation(self)
+    go.set("#model", "skybox_rotation", vmath.vector4(
+        math.cos(self.angle), math.sin(self.angle), 0, 0
+    ))
+end
+
+function init(self)
+    self.angle = 0
+    apply_rotation(self)
+end
+
+function update(self, dt)
+    self.angle = (self.angle + math.rad(self.rotation_speed) * dt) % (2 * math.pi)
+    apply_rotation(self)
+end

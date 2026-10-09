@@ -1,0 +1,10 @@
+mesh: "/builtins/assets/gltf/cube.gltf"
+name: "unnamed"
+materials {
+  name: "default"
+  material: "/assets/materials/skybox.material"
+  textures {
+    sampler: "skybox"
+    texture: "/assets/textures/skybox_blue/skybox.cubemap"
+  }
+}

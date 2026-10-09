@@ -2,52 +2,34 @@ local fake_real_glass = require "fake_real_glass.fake_real_glass"
 
 local PROBE_MODE = fake_real_glass.PROBE_MODE
 
-local SPECULAR_POWER = 64.0
 local REFLECTION_PROBE_POSITION = vmath.vector3(0, 3, -1)
 local REFLECTION_PROBE_EXTENTS = vmath.vector3(4, 3, 4)
 local REFLECTION_PROBE_SIZE = 512
 local REFLECTION_PROBE_MODE = PROBE_MODE.EVERY_FRAME
 
-local MODELS = {
-	"/glass_diamond_cube#model",
-	"/glass_wine#model",
-	"/plane#quad",
-	"/plane1#quad",
-	"/plane2#quad",
-	"/plane3#quad",
-	"/plane4#quad",
-	"/spheres#left",
-	"/spheres#right"
-}
-
 local function set_light(light_pos)
-	local glass_light = vmath.vector4(light_pos.x, light_pos.y, light_pos.z, SPECULAR_POWER)
-	for _, url in ipairs(MODELS) do
-		go.set(url, "light", glass_light)
-	end
+    go.set_position(light_pos, "/scene_light")
 end
 
 function init(self)
 	msg.post(".", "acquire_input_focus")
 	msg.post("camera", "acquire_camera_focus")
+	msg.post("@render:", "enable_planar_reflection", { enabled = true })
 
 	go.animate("/glass_diamond_cube", "euler.y", go.PLAYBACK_LOOP_FORWARD, 360, go.EASING_INOUTSINE, 8)
-	go.animate("/glass_wine", "euler.y", go.PLAYBACK_LOOP_FORWARD, 360, go.EASING_INOUTSINE, 8)
-	go.animate("/spheres", "position.y", go.PLAYBACK_LOOP_PINGPONG, 4, go.EASING_INOUTSINE, 12)
-	go.animate("/spheres", "euler.y", go.PLAYBACK_LOOP_FORWARD, 360, go.EASING_INOUTSINE, 16)
+	--go.animate("/glass_wine", "euler.y", go.PLAYBACK_LOOP_FORWARD, 360, go.EASING_INOUTSINE, 8)
+	go.animate("/spheres", "position.y", go.PLAYBACK_LOOP_PINGPONG, 1, go.EASING_INOUTSINE, 12)
+	go.animate("/spheres", "euler.y", go.PLAYBACK_LOOP_FORWARD, 360, go.EASING_LINEAR, 16)
 	go.set("/plane#quad", "tint", vmath.vector4(0.25, 0.25, 0.3, 1))
-	go.set("/plane1#quad", "tint", vmath.vector4(0.75, 0.85, 0.9, 1))
-	go.set("/plane2#quad", "tint", vmath.vector4(0.7, 0.5, 0.4, 1))
-	go.set("/plane3#quad", "tint", vmath.vector4(0.4, 0.5, 0.7, 1))
-	go.set("/plane4#quad", "tint", vmath.vector4(0.25, 0.25, 0.3, 1))
 	go.set("/spheres#left", "tint", vmath.vector4(0.8, 0.5, 0.1, 1))
 	go.set("/spheres#right", "tint", vmath.vector4(0.1, 0.5, 0.9, 1))
 
-	self.light = vmath.vector4(0, 3, 3, 0)
+	self.light = vmath.vector3(0, 3, 3)
 	msg.post("@render:", "set_probe_settings", {
 		position = REFLECTION_PROBE_POSITION,
 		extents = REFLECTION_PROBE_EXTENTS,
 		size = REFLECTION_PROBE_SIZE,
+		far = 200,
 		mode = REFLECTION_PROBE_MODE,
 	})
 	set_light(self.light)

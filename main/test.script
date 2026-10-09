@@ -1,0 +1,5 @@
+function init(self)
+	go.animate(".", "position.z", go.PLAYBACK_LOOP_PINGPONG, 1, go.EASING_INOUTSINE, 12)
+	-- Euler angles are in degrees; rotation.x is a quaternion component.
+	go.animate(".", "euler.x", go.PLAYBACK_LOOP_PINGPONG, -37, go.EASING_INOUTSINE, 12)
+end

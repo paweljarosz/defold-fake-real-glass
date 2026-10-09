@@ -1,0 +1,10 @@
+mesh: "/assets/meshes/defold_logo.gltf"
+name: "unnamed"
+materials {
+  name: "Material"
+  material: "/builtins/materials/model_instanced_lit.material"
+  textures {
+    sampler: "tex0"
+    texture: "/assets/textures/white.png"
+  }
+}

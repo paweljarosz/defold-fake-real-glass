@@ -1,0 +1,6 @@
+right: "/assets/textures/skybox_blue/right.png"
+left: "/assets/textures/skybox_blue/left.png"
+top: "/assets/textures/skybox_blue/top.png"
+bottom: "/assets/textures/skybox_blue/bottom.png"
+front: "/assets/textures/skybox_blue/front.png"
+back: "/assets/textures/skybox_blue/back.png"

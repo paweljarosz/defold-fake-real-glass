@@ -1,0 +1,15 @@
+#version 140
+in vec4 position;
+out vec3 var_direction;
+uniform vs_uniforms
+{
+    mat4 view;
+    mat4 projection;
+};
+void main()
+{
+    // Keep only camera rotation: the sky remains infinitely distant.
+    vec4 clip = projection * vec4(mat3(view) * position.xyz, 1.0);
+    gl_Position = clip.xyww;
+    var_direction = position.xyz;
+}

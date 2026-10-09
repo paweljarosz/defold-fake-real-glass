@@ -43,7 +43,7 @@
 ---@field probe_params vector4 Probe sampling parameters; `x = 1 / probe_size`, `y = max blur radius in texels`.
 
 ---@class FakeRealGlassProbeFace
----@field sampler string Sampler name exposed by the front-face material for this probe face.
+---@field face number Cubemap face enum selected when binding the target.
 ---@field forward vector3 Forward axis used when capturing this face.
 ---@field up vector3 Up axis used when capturing this face.
 
@@ -91,7 +91,7 @@ local M = {}
 ---@field rt_height integer Height of the window-sized scene/back-face render targets.
 ---@field scene_rt userdata|nil Render target containing the opaque scene color used for refraction sampling.
 ---@field backface_rt userdata|nil Render target containing back-face normals/depth for thickness and exit-ray reconstruction.
----@field probe_rts userdata[]|nil Array of six per-face render targets that emulate a cubemap.
+---@field probe_rt userdata|nil Cubemap render target containing all six probe faces.
 ---@field glass_constants FakeRealGlassConstantBuffer Constant buffer populated just before the visible glass draw.
 
 ---@class FakeRealGlassMessage
@@ -109,6 +109,9 @@ local M = {}
 ---@field window_height integer Current window height in pixels.
 ---@field clear_buffers table Render clear buffer table, reused for probe and scene captures.
 ---@field draw_world FakeRealGlassWorldDrawFn Callback that redraws the opaque world into the currently bound target.
+---@field output_target? userdata Destination for the visible glass pass; default is the backbuffer.
+---@field capture_probe? boolean Set false to reuse the current probe for an additional view.
+---@field flip_culling? boolean Reverse face culling for a mirrored camera.
 
 ---Legacy render message id for moving only the probe center position.
 ---@type hash
@@ -157,38 +160,38 @@ local DEFAULT_PROBE_MAX_BLUR_TEXELS = 6.0
 ---@type string
 local DEFAULT_BACKFACE_MATERIAL = "glass_backface_override"
 
----Per-face metadata for the six 90-degree renders that emulate a cubemap.
+---Per-face metadata for the six 90-degree renders of the cubemap.
 ---@type FakeRealGlassProbeFace[]
 local PROBE_FACES = {
     {
-        sampler = "u_probe_px",
+        face = graphics.CUBEMAP_FACE_POSITIVE_X,
         forward = vmath.vector3(1, 0, 0),
-        up = vmath.vector3(0, 1, 0),
+        up = vmath.vector3(0, -1, 0),
     },
     {
-        sampler = "u_probe_nx",
+        face = graphics.CUBEMAP_FACE_NEGATIVE_X,
         forward = vmath.vector3(-1, 0, 0),
-        up = vmath.vector3(0, 1, 0),
+        up = vmath.vector3(0, -1, 0),
     },
     {
-        sampler = "u_probe_py",
+        face = graphics.CUBEMAP_FACE_POSITIVE_Y,
         forward = vmath.vector3(0, 1, 0),
-        up = vmath.vector3(0, 0, -1),
-    },
-    {
-        sampler = "u_probe_ny",
-        forward = vmath.vector3(0, -1, 0),
         up = vmath.vector3(0, 0, 1),
     },
     {
-        sampler = "u_probe_pz",
-        forward = vmath.vector3(0, 0, 1),
-        up = vmath.vector3(0, 1, 0),
+        face = graphics.CUBEMAP_FACE_NEGATIVE_Y,
+        forward = vmath.vector3(0, -1, 0),
+        up = vmath.vector3(0, 0, -1),
     },
     {
-        sampler = "u_probe_nz",
+        face = graphics.CUBEMAP_FACE_POSITIVE_Z,
+        forward = vmath.vector3(0, 0, 1),
+        up = vmath.vector3(0, -1, 0),
+    },
+    {
+        face = graphics.CUBEMAP_FACE_NEGATIVE_Z,
         forward = vmath.vector3(0, 0, -1),
-        up = vmath.vector3(0, 1, 0),
+        up = vmath.vector3(0, -1, 0),
     },
 }
 
@@ -203,7 +206,7 @@ local PROBE_FACES = {
 ---@param height integer
 ---@param color_format userdata Texture format for the color attachment.
 ---@return userdata render_target
-local function create_render_target(width, height, color_format)
+local function create_render_target(width, height, color_format, texture_type)
     local color_params = {
         format = color_format,
         width = width,
@@ -221,6 +224,7 @@ local function create_render_target(width, height, color_format)
         v_wrap = graphics.TEXTURE_WRAP_CLAMP_TO_EDGE,
     }
     return render.render_target({
+        type = texture_type or graphics.TEXTURE_TYPE_2D,
         [graphics.BUFFER_TYPE_COLOR0_BIT] = color_params,
         [graphics.BUFFER_TYPE_DEPTH_BIT] = depth_params,
     })
@@ -258,40 +262,34 @@ local function get_recommended_probe_far(extents)
     return math.max(DEFAULT_PROBE_FAR, radius * 2.0)
 end
 
----Delete all currently allocated probe-face render targets.
+---Delete the allocated reflection cubemap.
 ---
 ---This is used when probe rendering is disabled or when the probe face size
----changes and the six targets need to be recreated.
+---changes and the cubemap target needs to be recreated.
 ---
 ---@param glass FakeRealGlassState
 local function delete_probe_targets(glass)
-    if not glass.probe_rts then
-        return
+    if glass.probe_rt then
+        render.delete_render_target(glass.probe_rt)
+        glass.probe_rt = nil
     end
-
-    for i = 1, #glass.probe_rts do
-        render.delete_render_target(glass.probe_rts[i])
-    end
-    glass.probe_rts = nil
 end
 
----Allocate the six render targets used as the local reflection probe.
+---Allocate the cubemap render target used as the local reflection probe.
 ---
----Each target represents one axis-aligned 90-degree view of the environment.
+---The target holds six axis-aligned 90-degree views of the environment.
 ---
 ---@param glass FakeRealGlassState
 local function create_probe_targets(glass)
-    glass.probe_rts = {}
-    for i = 1, #PROBE_FACES do
-        glass.probe_rts[i] = create_render_target(glass.probe_size, glass.probe_size, graphics.TEXTURE_FORMAT_RGBA16F)
-    end
+    glass.probe_rt = create_render_target(glass.probe_size, glass.probe_size,
+        graphics.TEXTURE_FORMAT_RGBA16F, graphics.TEXTURE_TYPE_CUBE_MAP)
 end
 
----Ensure the six probe render targets exist before a draw that needs them.
+---Ensure the probe cubemap exists before a draw that needs it.
 ---
 ---@param glass FakeRealGlassState
 local function ensure_probe_targets(glass)
-    if not glass.probe_rts then
+    if not glass.probe_rt then
         create_probe_targets(glass)
     end
 end
@@ -442,8 +440,8 @@ end
 ---
 ---Call this from `init()` and when the window size changes.
 ---
----If probe rendering is enabled, this also makes sure the six probe-face
----targets exist, but it does not force them to be redrawn immediately.
+---If probe rendering is enabled, this also ensures the cubemap exists,
+---but does not force it to be redrawn immediately.
 ---
 ---@param glass FakeRealGlassState|nil Module state previously returned by `create()`.
 ---@param width integer New window width in pixels.
@@ -563,9 +561,10 @@ function M.draw(glass, params)
         return
     end
 
+    render.set_camera()
     resize_targets(glass, window_width, window_height)
 
-    if should_render_probe(glass) then
+    if params.capture_probe ~= false and should_render_probe(glass) then
         ensure_probe_targets(glass)
         for i = 1, #PROBE_FACES do
             local face = PROBE_FACES[i]
@@ -575,7 +574,7 @@ function M.draw(glass, params)
                 face.up
             )
 
-            render.set_render_target(glass.probe_rts[i])
+            render.set_render_target(glass.probe_rt, { face = face.face })
             render.set_depth_mask(true)
             render.clear(clear_buffers)
             draw_world(probe_view, glass.probe_projection, glass.probe_size, glass.probe_size)
@@ -602,7 +601,7 @@ function M.draw(glass, params)
     render.set_depth_mask(true)
     render.disable_state(graphics.STATE_BLEND)
     render.enable_state(graphics.STATE_CULL_FACE)
-    render.set_cull_face(graphics.FACE_TYPE_FRONT)
+    render.set_cull_face(params.flip_culling and graphics.FACE_TYPE_BACK or graphics.FACE_TYPE_FRONT)
     render.enable_material(glass.backface_material)
     render.draw(glass.glass_predicate, {
         frustum = projection * view,
@@ -612,7 +611,7 @@ function M.draw(glass, params)
     render.disable_material()
     render.disable_state(graphics.STATE_CULL_FACE)
 
-    render.set_render_target(render.RENDER_TARGET_DEFAULT)
+    render.set_render_target(params.output_target or render.RENDER_TARGET_DEFAULT)
     render.set_viewport(0, 0, window_width, window_height)
     render.set_view(view)
     render.set_projection(projection)
@@ -620,7 +619,7 @@ function M.draw(glass, params)
     render.set_depth_mask(true)
     render.disable_state(graphics.STATE_BLEND)
     render.enable_state(graphics.STATE_CULL_FACE)
-    render.set_cull_face(graphics.FACE_TYPE_BACK)
+    render.set_cull_face(params.flip_culling and graphics.FACE_TYPE_FRONT or graphics.FACE_TYPE_BACK)
 
     local inv_view = vmath.inv(view)
     glass.glass_constants.view = view
@@ -629,15 +628,13 @@ function M.draw(glass, params)
     glass.glass_constants.render_state = vmath.vector4(1.0, 0.0, 0.0, 0.0)
     glass.glass_constants.probe_center = vmath.vector4(glass.probe_position.x, glass.probe_position.y, glass.probe_position.z, 1.0)
     glass.glass_constants.probe_extents = vmath.vector4(glass.probe_extents.x, glass.probe_extents.y, glass.probe_extents.z, 1.0)
-    glass.glass_constants.probe_params = vmath.vector4(1.0 / glass.probe_size, glass.probe_max_blur_texels, 0.0, 0.0)
+    glass.glass_constants.probe_params = vmath.vector4(1.0 / glass.probe_size, glass.probe_max_blur_texels, glass.sphere_refraction and 1.0 or 0.0, 0.0)
 
     render.enable_texture("u_scene_color", glass.scene_rt, graphics.BUFFER_TYPE_COLOR0_BIT)
     render.enable_texture("u_backface_nd", glass.backface_rt, graphics.BUFFER_TYPE_COLOR0_BIT)
 
-    if glass.probe_mode ~= M.PROBE_MODE_DISABLED and glass.probe_rts then
-        for i = 1, #PROBE_FACES do
-            render.enable_texture(PROBE_FACES[i].sampler, glass.probe_rts[i], graphics.BUFFER_TYPE_COLOR0_BIT)
-        end
+    if glass.probe_mode ~= M.PROBE_MODE_DISABLED and glass.probe_rt then
+        render.enable_texture("u_probe", glass.probe_rt, graphics.BUFFER_TYPE_COLOR0_BIT)
     end
 
     render.draw(glass.glass_predicate, {
@@ -647,10 +644,8 @@ function M.draw(glass, params)
         sort_order = render.SORT_FRONT_TO_BACK,
     })
 
-    if glass.probe_mode ~= M.PROBE_MODE_DISABLED and glass.probe_rts then
-        for i = #PROBE_FACES, 1, -1 do
-            render.disable_texture(PROBE_FACES[i].sampler)
-        end
+    if glass.probe_mode ~= M.PROBE_MODE_DISABLED and glass.probe_rt then
+        render.disable_texture("u_probe")
     end
 
     render.disable_texture("u_backface_nd")

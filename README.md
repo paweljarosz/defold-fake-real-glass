@@ -2,7 +2,7 @@
 
 A multipass fake glass effect for [Defold](https://defold.com), based on the [UnityURP-FakeRealGlass](https://github.com/Youssef-Afella/UnityURP-FakeRealGlass).
 
-<img src="media/banner.png">
+<img src="media/banner.png?v=1.1">
 
 This project reproduces the core ideas from the Unity version:
 
@@ -12,10 +12,12 @@ This project reproduces the core ideas from the Unity version:
 - optional local probe reflections
 - optional absorption
 - forward rendering
-- a movable specular light
+- lighting from Defold light components
 - runtime-configurable reflection probe modes and probe size
 
 The repository includes two example Defold collections.
+
+Requires Defold **1.14.0 or newer** for cubemap render targets. The main scene has a lit Defold logo and two glass spheres, each with its own probe. The wine scene has a slowly rotating skybox, which is also included in the reflections.
 
 ## Installation
 
@@ -24,7 +26,7 @@ In order to use FakeRealGlass in your Defold game add project as a Defold librar
 Newest version link:
 
 ```
-https://github.com/paweljarosz/defold-fake-real-glass/archive/refs/tags/v1.0.zip
+https://github.com/paweljarosz/defold-fake-real-glass/archive/refs/heads/main.zip
 ```
 
 Once added, you must require the main Lua module in scripts via:
@@ -38,9 +40,9 @@ local fake_real_glass = require("fake_real_glass.fake_real_glass")
 The easiest way to integrate this effect into your own project is to:
 
 1. Use the included [fake_real_glass.render](fake_real_glass/render/fake_real_glass.render) with the [fake_real_glass.render_script](fake_real_glass/render/fake_real_glass.render_script)
-using the [fake_real_glass.lua](fake_real_glass/render/fake_real_glass.lua) as the reusable render module add-on, or modify your render pipeline to include fake_real_glass add-on (read below).
-2. Use the [glass_front.material](fake_real_glass/materials/glass_front.material) on your glass models.
-3. Assign the [fake_real_glass.script](fake_real_glass/scripts/fake_real_glass.script) to control parameters of each glass model component.
+using the [fake_real_glass.lua](fake_real_glass/fake_real_glass.lua) as the reusable render module add-on, or modify your render pipeline to include fake_real_glass add-on (read below).
+2. Use the [glass_front.material](fake_real_glass/materials/glass_frontface/glass_frontface.material) on your glass models.
+3. Assign the [fake_real_glass.script](fake_real_glass/fake_real_glass.script) to control parameters of each glass model component.
 
 ## Reflection probe modes
 
@@ -54,23 +56,23 @@ The main quality/performance choice is the reflection probe behaviour and here a
 
 Here is the scene with the reflection probe:
 
-<img src="media/dynamic_cubemap_reflection_probes_enabled.png">
+<img src="media/dynamic_cubemap_reflection_probes_enabled.png?v=1.1">
 
 Here is the scene without the reflection probe:
 
-<img src="media/no_reflection_probes.png">
+<img src="media/no_reflection_probes.png?v=1.1">
 
 ## Add it to your own Render Pipeline
 
 If you already have your own render script, the integration is intentionally small and least intrusive, the provided render script just adds the lua module into the default Defold render script. In order to integrate it:
 
 1. Add The Back-Face Material To Your `.render` File:
-  <img src="media/render.png">
+  <img src="media/render.png?v=1.1">
   If you want a different material name, remember to pass it into `fake_real_glass.create({ backface_material = "..." })`.
 
 2. Require the Fake Real Glass module in your render script:
 ```lua
-local fake_real_glass = require "fake_real_glass.render.fake_real_glass"
+local fake_real_glass = require "fake_real_glass.fake_real_glass"
 ```
 
 3. Create the glass state in `init()`:
@@ -135,21 +137,21 @@ end
 
 ### Adding a glass material to model
 
-Use [glass_frontface.material](fake_real_glass/materials/glass_frontface.material) on a `.model`.
+Use [glass_frontface.material](fake_real_glass/materials/glass_frontface/glass_frontface.material) on a `.model`.
 
 Each glass `.model` needs placeholder textures for the samplers that will be overridden at runtime.
 
-When the reflection probe is enabled, the render module overrides those six probe textures at runtime.
+When the reflection probe is enabled, the render module overrides the `u_probe` cubemap at runtime. Assign a `.cubemap` placeholder to this sampler.
 
 When the reflection probe is disabled, the material falls back to whatever textures you declared there, so if you can use the prerendered textures, assign them here.
 
 In the editor the material falls back to a built-in preview until the runtime render module binds the real scene and back-face textures, so the model stays visible while editing. This could be removed, but then the preview of the model in the editor would be invisible, beside bounding box.
 
-<img src="media/material.png">
+<img src="media/material.png?v=1.1">
 
 ### Add the helper script
 
-There is a helper [fake_real_glass.script](fake_real_glass/scripts/fake_real_glass.script) to simplify setting up the parameters for the glass model.
+There is a helper [fake_real_glass.script](fake_real_glass/fake_real_glass.script) to simplify setting up the parameters for the glass model.
 
 By default that helper script targets the model component id `model`.
 
@@ -157,24 +159,18 @@ If one game object contains multiple glass model components, set its `model_id` 
 
 ### Set The Light
 
-Set `light_position` from gameplay code:
+Add Defold light components directly to game objects in the collection. Glass uses ambient, directional, point and spot lights for shading and specular highlights. The examples use up to 8 lights (`light.max_count` in `game.project`).
 
-```lua
-go.set("/my_glass#model", "light_position", vmath.vector4(x, y, z, 64.0))
-```
-
-`x`, `y`, `z` are the light world position.
-
-`w` is the specular power.
+Ordinary opaque models use the built-in `model_instanced_lit.material`. The skybox is affected by ambient light too.
 
 ## Runtime Controls
 
 ### Probe Modes
 
-The shared enum lives in [fake_real_glass/render/fake_real_glass.lua](fake_real_glass/render/fake_real_glass.lua):
+The shared enum lives in [fake_real_glass/fake_real_glass.lua](fake_real_glass/fake_real_glass.lua):
 
 ```lua
-local fake_real_glass = require "main.render.fake_real_glass"
+local fake_real_glass = require "fake_real_glass.fake_real_glass"
 
 fake_real_glass.PROBE_MODE.DISABLED
 fake_real_glass.PROBE_MODE.CAPTURE_ONCE
@@ -186,7 +182,7 @@ fake_real_glass.PROBE_MODE.EVERY_FRAME
 Send this to `@render:`:
 
 ```lua
-local fake_real_glass = require "main.render.fake_real_glass"
+local fake_real_glass = require "fake_real_glass.fake_real_glass"
 
 msg.post("@render:", "set_probe_settings", {
     position = vmath.vector3(0, 3, -1),
@@ -211,7 +207,7 @@ Supported fields:
 - `rebuild`
   forces a new capture in `CAPTURE_ONCE` mode
 
-Changing `size` recreates all six probe render targets.
+Changing `size` recreates the cubemap render target. Its six faces must be square and equally sized. Cubemap render targets do not support multisampling yet.
 
 If probes are currently disabled, the new size is still remembered and will be used next time probes are enabled.
 
@@ -221,7 +217,7 @@ This is the biggest quality/performance lever in the whole system. It tells the 
 
 ### `disabled`
 
-- skips the probe target creation and the 6-face probe capture path entirely, leaves the front glass shader using the model's placeholder probe textures
+- skips the probe target creation and the 6-face probe capture path entirely, leaves the front glass shader using the model's assigned cubemap
 
 Advantages:
 
@@ -279,15 +275,15 @@ Some tested values:
 - if refraction is too weak, increase `refraction_distance`
 - if thickness looks weird, try `use_constant_thickness = 1`
 - if reflections look detached, make the probe `extents` match the real room better, keep `box_projection_amount=1.0`
-- if reflections feel like they come from the wrong place, move the probe center - in fact all glass objects start probing from the same center, so keep them in the similar position for best effect. This could be improved by making multiple separate probes for each glass objects.
+- if reflections feel like they come from the wrong place, move the probe center. Glass objects sharing a probe should stay near its center. For separate probes, use separate module states and glass predicates, as in the main scene.
 
 ## Module API
 
-The reusable render module is [fake_real_glass/render/fake_real_glass.lua](fake_real_glass/render/fake_real_glass.lua).
+The reusable render module is [fake_real_glass/fake_real_glass.lua](fake_real_glass/fake_real_glass.lua).
 
 ### Quick API Reference
 
-- `fake_real_glass.create(options)` - creates render targets and settings for the fake real glass effect
+- `fake_real_glass.create(options)` - creates settings for the fake real glass effect; render targets are allocated when needed
 - `fake_real_glass.resize(glass, width, height)` - resizes render targets
 - `fake_real_glass.draw(glass, params)` - draws the glass objects and all needed textures for reflections and refractions
 - `fake_real_glass.on_message(glass, message_id, message)` - handles messages from the glass script
@@ -328,6 +324,12 @@ The `draw_world(view, projection, viewport_width, viewport_height)` callback sho
 - probe capture
 - `scene_rt` capture
 
+Optional params:
+
+- `output_target` - render glass into another target instead of the screen
+- `capture_probe = false` - reuse the existing cubemap for another view
+- `flip_culling = true` - reverse culling for a mirrored camera
+
 ## What The Effect Does
 
 At a high level, the front glass shader does this:
@@ -356,7 +358,7 @@ The module redraws the opaque world 6 times from the probe center.
 
 Output:
 
-- `probe_rts[1..6]` - render targets for each face of the probe
+- `probe_rt` - one cubemap render target, with a face selected when binding it
 
 ### Pass 1: Opaque Scene To `scene_rt`
 
@@ -379,13 +381,13 @@ The front glass material samples:
 
 - `u_scene_color`
 - `u_backface_nd`
-- probe faces when probes are enabled
+- `u_probe` cubemap when probes are enabled
 
 It then computes refraction, reflection, thickness, optional absorption, and the direct specular term.
 
 ## Shader Breakdown
 
-### `glass_front.fp`
+### `glass_frontface.fp`
 
 - split the view ray into reflection and refraction
 - reconstruct thickness from back-face depth
@@ -401,7 +403,7 @@ It then computes refraction, reflection, thickness, optional absorption, and the
 
 ## Materials And Model Setup
 
-### `glass_front.material`
+### `glass_frontface.material`
 
 Used by visible glass models.
 
@@ -409,12 +411,7 @@ Samplers:
 
 - `u_scene_color`
 - `u_backface_nd`
-- `u_probe_px`
-- `u_probe_nx`
-- `u_probe_py`
-- `u_probe_ny`
-- `u_probe_pz`
-- `u_probe_nz`
+- `u_probe` (`samplerCube`)
 
 ### `glass_backface.material`
 
@@ -424,7 +421,7 @@ You should not assign this material directly to glass models.
 
 ## Glass Script
 
-[fake_real_glass/scripts/fake_real_glass.script](fake_real_glass/scripts/fake_real_glass.script) pushes per-object settings into the model material constants.
+[fake_real_glass/fake_real_glass.script](fake_real_glass/fake_real_glass.script) pushes per-object settings into the model material constants.
 
 Properties:
 
@@ -439,6 +436,8 @@ Properties:
 - `specular_strength` - strength of direct specular highlights
 - `surface_smoothness` - smoothness of specular highlights
 - `box_projection_amount` - amount of box projection to apply to probe sampling
+- `transmission` - amount of light transmitted through the glass
+- `reflection_min` - artistic minimum reflection amount
 - `tint_color` - tint color of the glass material
 - `absorption_color` - base color of absorption
 
@@ -455,7 +454,7 @@ But there are some important differences:
 
 | Area | Unity sample | This Defold version |
 |---|---|---|
-| Reflections | URP reflection-probe / environment-reflection path | One manual 6-face local probe built from 6 2D render targets |
+| Reflections | URP reflection-probe / environment-reflection path | A native cubemap render target, captured in 6 views |
 | Probe behavior | Mostly probe-driven and engine-managed | `disabled`, `capture once`, or `every frame`, controlled by Lua |
 | Integration | Mostly automatic through URP | Explicit `.render` material entry plus a render-module call |
 | Transparency behavior | Unity transparent pipeline behavior | Depth-stable front pass tuned for this Defold setup |
@@ -464,19 +463,33 @@ The biggest difference compared to the Unity sample is the live probe mode.
 
 ## Current Limitations and Trade-offs
 
-- one probe for the whole scene at a time
+- one probe per module state; separate probes add capture cost
 - no multi-probe blending
 - no true cubemap mip chain
-- no reflection of other glass through the probe path
+- no reflection of other glass through the cubemap probe path; the optional planar reflection pass includes glass
 - probe reflections are only as up-to-date as the selected probe mode
+
+## Planar reflections
+
+Both examples also use [planar_reflection.material](assets/materials/planar_reflection.material) for the floor. It can be used on other flat surfaces too. This is optional and separate from the glass effect; the example assets are not included in the library's `fake_real_glass` directory.
+
+```lua
+msg.post("@render:", "enable_planar_reflection", {
+    enabled = true,
+    plane = vmath.vector4(0, 1, 0, 0),
+    strength = 0.4,
+})
+```
+
+The plane is defined by `normal · position + d = 0`; the default is Y = 0. Only one reflection plane is supported per scene. Assign a placeholder texture to the material's `planar_reflection` sampler.
+
+The renderer redraws the scene from a mirrored camera, including glass, and reuses existing cubemap captures. This adds a window-sized color/depth target and another scene view with glass scene-color and back-face passes, so it is more expensive. Planar surfaces are excluded from the mirrored view to avoid recursive reflections.
 
 ## Credits
 
 - Original inspiration and references - UnityURP-FakeRealGlass by Youssef Afella https://github.com/Youssef-Afella/UnityURP-FakeRealGlass
 
-- 3Deforms models by Thevisionaire under MIT license: https://github.com/Thevisionaire1/3Deforms
-
-- The wine.collection example uses additionally the Red Wine Glass model by Rylae Shylna under CC Attribution license: https://sketchfab.com/3d-models/red-wine-glass-ad6a40bbcf50435bbd41411ece4b9dbe
+- The wine.collection example uses additionally the Red Wine Glass model by Rylae Shylna under CC-BY-4.0 (original assets and [license](assets/meshes/red_wine_glass/license.txt) included): https://sketchfab.com/3d-models/red-wine-glass-ad6a40bbcf50435bbd41411ece4b9dbe
 
 ## License
 

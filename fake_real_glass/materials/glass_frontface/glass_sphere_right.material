@@ -1,0 +1,142 @@
+name: "glass_front"
+tags: "glass_sphere_right"
+vertex_program: "/fake_real_glass/materials/glass_frontface/glass_frontface.vp"
+fragment_program: "/fake_real_glass/materials/glass_frontface/glass_frontface.fp"
+vertex_space: VERTEX_SPACE_LOCAL
+vertex_constants {
+  name: "view"
+  type: CONSTANT_TYPE_VIEW
+}
+vertex_constants {
+  name: "view_proj"
+  type: CONSTANT_TYPE_VIEWPROJ
+}
+fragment_constants {
+  name: "view_proj"
+  type: CONSTANT_TYPE_VIEWPROJ
+}
+fragment_constants {
+  name: "camera_position"
+  type: CONSTANT_TYPE_USER
+  value {
+    w: 1.0
+  }
+}
+fragment_constants {
+  name: "render_state"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 0.0
+  }
+}
+fragment_constants {
+  name: "tint_color"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 1.0
+    y: 1.0
+    z: 1.0
+    w: 1.0
+  }
+}
+fragment_constants {
+  name: "absorption_color"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 0.15
+    y: 0.04
+    z: 0.01
+    w: 1.0
+  }
+}
+fragment_constants {
+  name: "settings0"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 1.45
+    y: 0.35
+    z: 1.0
+    w: 0.2
+  }
+}
+fragment_constants {
+  name: "settings1"
+  type: CONSTANT_TYPE_USER
+  value {
+    y: 0.0
+    z: 0.5
+    w: 0.5
+  }
+}
+fragment_constants {
+  name: "settings2"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 0.75
+    y: 1.0
+    z: 1.0
+  }
+}
+fragment_constants {
+  name: "specular_params"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 64.0
+  }
+}
+fragment_constants {
+  name: "probe_center"
+  type: CONSTANT_TYPE_USER
+  value {
+    y: 3.0
+    z: -1.0
+    w: 1.0
+  }
+}
+fragment_constants {
+  name: "probe_extents"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 4.0
+    y: 3.0
+    z: 4.0
+    w: 1.0
+  }
+}
+fragment_constants {
+  name: "probe_params"
+  type: CONSTANT_TYPE_USER
+  value {
+    x: 0.00390625
+    y: 6.0
+  }
+}
+samplers {
+  name: "u_scene_color"
+  wrap_u: WRAP_MODE_CLAMP_TO_EDGE
+  wrap_v: WRAP_MODE_CLAMP_TO_EDGE
+  filter_min: FILTER_MODE_MIN_LINEAR
+  filter_mag: FILTER_MODE_MAG_LINEAR
+  max_anisotropy: 0.0
+}
+samplers {
+  name: "u_backface_nd"
+  wrap_u: WRAP_MODE_CLAMP_TO_EDGE
+  wrap_v: WRAP_MODE_CLAMP_TO_EDGE
+  filter_min: FILTER_MODE_MIN_LINEAR
+  filter_mag: FILTER_MODE_MAG_LINEAR
+  max_anisotropy: 0.0
+}
+samplers {
+  name: "u_probe"
+  wrap_u: WRAP_MODE_CLAMP_TO_EDGE
+  wrap_v: WRAP_MODE_CLAMP_TO_EDGE
+  filter_min: FILTER_MODE_MIN_LINEAR
+  filter_mag: FILTER_MODE_MAG_LINEAR
+}
+
+vertex_constants { name: "world" type: CONSTANT_TYPE_WORLD }
+vertex_constants { name: "normal_matrix" type: CONSTANT_TYPE_NORMAL }

@@ -1,0 +1,19 @@
+mesh: "/builtins/assets/gltf/sphere.gltf"
+name: "unnamed"
+materials {
+  name: "default"
+  material: "/fake_real_glass/materials/glass_frontface/glass_sphere_left.material"
+  textures {
+    sampler: "u_scene_color"
+    texture: "/assets/textures/empty_texture_1024x1024.png"
+  }
+  textures {
+    sampler: "u_backface_nd"
+    texture: "/assets/textures/empty_texture_1024x1024.png"
+  }
+  textures {
+    sampler: "u_probe"
+    texture: "/fake_real_glass/materials/preview.cubemap"
+  }
+}
+create_go_bones: false

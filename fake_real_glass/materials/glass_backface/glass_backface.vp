@@ -34,6 +34,8 @@ void main()
     // The render script culls front faces during this draw, so the geometry
     // reaching this shader already represents the "exit side" of the glass.
     gl_Position      = view_proj * world_pos4;
-    var_world_normal = normalize((mtx_normal * vec4(normal, 0.0)).xyz);
+    // Convert Defold's view-space normal back to world space for the exit ray.
+    vec3 view_normal = normalize((mtx_normal * vec4(normal, 0.0)).xyz);
+    var_world_normal = normalize(transpose(mat3(view)) * view_normal);
     var_view_depth   = -view_pos4.z;
 }

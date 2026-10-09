@@ -2,9 +2,9 @@ mesh: "/builtins/assets/gltf/quad_2x2.gltf"
 name: "unnamed"
 materials {
   name: "default"
-  material: "/builtins/materials/model_instanced.material"
+  material: "/assets/materials/planar_reflection.material"
   textures {
-    sampler: "tex0"
+    sampler: "planar_reflection"
     texture: "/assets/textures/empty_texture_1024x1024.png"
   }
 }

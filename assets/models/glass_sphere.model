@@ -12,28 +12,8 @@ materials {
     texture: "/assets/textures/empty_texture_1024x1024.png"
   }
   textures {
-    sampler: "u_probe_px"
-    texture: "/assets/textures/empty_texture_1024x1024.png"
-  }
-  textures {
-    sampler: "u_probe_nx"
-    texture: "/assets/textures/empty_texture_1024x1024.png"
-  }
-  textures {
-    sampler: "u_probe_py"
-    texture: "/assets/textures/empty_texture_1024x1024.png"
-  }
-  textures {
-    sampler: "u_probe_ny"
-    texture: "/assets/textures/empty_texture_1024x1024.png"
-  }
-  textures {
-    sampler: "u_probe_pz"
-    texture: "/assets/textures/empty_texture_1024x1024.png"
-  }
-  textures {
-    sampler: "u_probe_nz"
-    texture: "/assets/textures/empty_texture_1024x1024.png"
+    sampler: "u_probe"
+    texture: "/fake_real_glass/materials/preview.cubemap"
   }
 }
 create_go_bones: false

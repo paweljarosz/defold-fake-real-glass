@@ -169,23 +169,37 @@ local function reset_camera_world(state)
     end
 end
 
-local function draw_world(predicates, view, projection, viewport_width, viewport_height)
+local function draw_world(predicates, view, projection, viewport_width, viewport_height, mirrored)
     local draw_options = {
         frustum = projection * view,
         frustum_planes = render.FRUSTUM_PLANES_ALL,
         sort_order = render.SORT_FRONT_TO_BACK,
     }
 
+    -- Explicit matrices are shared by the screen and all capture passes.
+    render.set_camera()
     render.set_viewport(0, 0, viewport_width, viewport_height)
     render.set_view(view)
     render.set_projection(projection)
+
+    -- Fill the background without modifying depth, including inside probes.
+    -- No culling: the camera views the cube from inside.
+    render.disable_state(graphics.STATE_BLEND)
+    render.disable_state(graphics.STATE_DEPTH_TEST)
+    render.disable_state(graphics.STATE_CULL_FACE)
+    render.set_depth_mask(false)
+    render.draw(predicates.skybox)
 
     render.set_blend_func(graphics.BLEND_FACTOR_SRC_ALPHA, graphics.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
     render.enable_state(graphics.STATE_DEPTH_TEST)
     render.enable_state(graphics.STATE_CULL_FACE)
     render.set_depth_mask(true)
     render.disable_state(graphics.STATE_BLEND)
+    render.set_cull_face(mirrored and graphics.FACE_TYPE_FRONT or graphics.FACE_TYPE_BACK)
     render.draw(predicates.model, draw_options)
+    if not mirrored then
+        render.draw(predicates.planar_reflection, draw_options)
+    end
     render.disable_state(graphics.STATE_CULL_FACE)
 
     render.set_depth_mask(false)
@@ -197,7 +211,11 @@ local function draw_world(predicates, view, projection, viewport_width, viewport
 end
 
 function init(self)
-    self.predicates = create_predicates("tile", "gui", "particle", "model", "debug_text")
+    self.planar_constants = render.constant_buffer()
+    self.planar_reflection_enabled = false
+    self.planar_plane = vmath.vector4(0, 1, 0, 0)
+    self.planar_strength = 0.4
+    self.predicates = create_predicates("tile", "gui", "particle", "model", "skybox", "planar_reflection", "debug_text")
 
     -- default is stretch projection. copy from builtins and change for different projection
     -- or send a message to the render script to change projection:
@@ -224,7 +242,8 @@ function init(self)
     self.fake_glass = fake_real_glass.create({
         backface_material = "glass_backface_override",
     })
-    fake_real_glass.resize(self.fake_glass, state.window_width, state.window_height)
+    self.shared_glass_enabled = true
+    self.sphere_glass = {}
 end
 
 function update(self)
@@ -252,16 +271,86 @@ function update(self)
 
     -- Fake Real Glass integration:
     -- this captures the opaque scene/back faces and draws the glass front faces.
-    fake_real_glass.draw(self.fake_glass, {
-        view = world_view,
-        projection = world_projection,
-        window_width = state.window_width,
-        window_height = state.window_height,
-        clear_buffers = state.clear_buffers,
-        draw_world = function(view, projection, viewport_width, viewport_height)
-            draw_world(predicates, view, projection, viewport_width, viewport_height)
-        end,
-    })
+    self.sphere_glass = self.sphere_glass or {}
+    local glass_states = {}
+    if self.shared_glass_enabled ~= false then glass_states[#glass_states + 1] = self.fake_glass end
+    for _, tag in ipairs({ "glass_sphere_left", "glass_sphere_right" }) do
+        if self.sphere_glass[tag] then
+            glass_states[#glass_states + 1] = self.sphere_glass[tag]
+        end
+    end
+    for _, glass_state in ipairs(glass_states) do
+        fake_real_glass.draw(glass_state, {
+            view = world_view,
+            projection = world_projection,
+            window_width = state.window_width,
+            window_height = state.window_height,
+            clear_buffers = state.clear_buffers,
+            draw_world = function(view, projection, viewport_width, viewport_height)
+                draw_world(predicates, view, projection, viewport_width, viewport_height)
+            end,
+        })
+    end
+
+    if self.planar_reflection_enabled then
+        local width, height = state.window_width, state.window_height
+        if not self.planar_rt or self.planar_width ~= width or self.planar_height ~= height then
+            if self.planar_rt then render.delete_render_target(self.planar_rt) end
+            self.planar_rt = render.render_target({
+                [graphics.BUFFER_TYPE_COLOR0_BIT] = {
+                    format = graphics.TEXTURE_FORMAT_RGBA16F, width = width, height = height,
+                    min_filter = graphics.TEXTURE_FILTER_LINEAR, mag_filter = graphics.TEXTURE_FILTER_LINEAR,
+                    u_wrap = graphics.TEXTURE_WRAP_CLAMP_TO_EDGE, v_wrap = graphics.TEXTURE_WRAP_CLAMP_TO_EDGE,
+                },
+                [graphics.BUFFER_TYPE_DEPTH_BIT] = {
+                    format = graphics.TEXTURE_FORMAT_DEPTH, width = width, height = height,
+                },
+            })
+            self.planar_width, self.planar_height = width, height
+        end
+        -- Reflect across n.x + d = 0; normalize the supplied plane.
+        local p = self.planar_plane
+        local length = math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z)
+        local x, y, z, d = p.x / length, p.y / length, p.z / length, p.w / length
+        local mirror = vmath.matrix4()
+        mirror.m00, mirror.m01, mirror.m02 = 1 - 2*x*x, -2*x*y, -2*x*z
+        mirror.m10, mirror.m11, mirror.m12 = -2*y*x, 1 - 2*y*y, -2*y*z
+        mirror.m20, mirror.m21, mirror.m22 = -2*z*x, -2*z*y, 1 - 2*z*z
+        mirror.m03, mirror.m13, mirror.m23 = -2*d*x, -2*d*y, -2*d*z
+        local mirror_view = world_view * mirror
+        render.set_render_target(self.planar_rt)
+        render.set_depth_mask(true)
+        render.clear(state.clear_buffers)
+        draw_world(predicates, mirror_view, world_projection, width, height, true)
+        for _, glass_state in ipairs(glass_states) do
+            fake_real_glass.draw(glass_state, {
+                view = mirror_view, projection = world_projection,
+                window_width = width, window_height = height, clear_buffers = state.clear_buffers,
+                output_target = self.planar_rt, capture_probe = false, flip_culling = true,
+                draw_world = function(view, projection, w, h)
+                    draw_world(predicates, view, projection, w, h, true)
+                end,
+            })
+        end
+        render.set_render_target(render.RENDER_TARGET_DEFAULT)
+        render.set_viewport(0, 0, width, height)
+        render.set_view(world_view)
+        render.set_projection(world_projection)
+        render.enable_state(graphics.STATE_DEPTH_TEST)
+        render.set_depth_func(graphics.COMPARE_FUNC_LEQUAL)
+        render.set_depth_mask(true)
+        render.disable_state(graphics.STATE_BLEND)
+        render.enable_state(graphics.STATE_CULL_FACE)
+        render.set_cull_face(graphics.FACE_TYPE_BACK)
+        self.planar_constants.reflection_view_proj = world_projection * mirror_view
+        self.planar_constants.reflection_params = vmath.vector4(1 / width, 1 / height, self.planar_strength, 1)
+        render.enable_texture("planar_reflection", self.planar_rt, graphics.BUFFER_TYPE_COLOR0_BIT)
+        render.draw(predicates.planar_reflection, { constants = self.planar_constants })
+        render.disable_texture("planar_reflection")
+        render.set_depth_func(graphics.COMPARE_FUNC_LESS)
+        render.disable_state(graphics.STATE_CULL_FACE)
+        render.disable_state(graphics.STATE_DEPTH_TEST)
+    end
 
     render.draw_debug3d()
 
@@ -282,11 +371,48 @@ end
 
 function final(self)
     fake_real_glass.final(self.fake_glass)
+    for _, glass in pairs(self.sphere_glass or {}) do fake_real_glass.final(glass) end
+    if self.planar_rt then render.delete_render_target(self.planar_rt) end
 end
 
 function on_message(self, message_id, message)
     local state = self.state
     local camera = state.main_camera
+
+    if message_id == hash("enable_shared_glass") then
+        self.shared_glass_enabled = message.enabled ~= false
+        if not self.shared_glass_enabled then fake_real_glass.final(self.fake_glass) end
+        return
+    end
+
+    if message_id == hash("set_sphere_probe") then
+        self.sphere_glass = self.sphere_glass or {}
+        local glass = self.sphere_glass[message.tag]
+        if not glass then
+            glass = fake_real_glass.create({
+                glass_tag = message.tag, probe_position = message.position,
+                probe_size = 512, probe_far = 200,
+                backface_material = "glass_backface_override",
+            })
+            glass.sphere_refraction = true
+            self.sphere_glass[message.tag] = glass
+        end
+        fake_real_glass.on_message(glass, hash("set_probe_position"), {
+            position = message.position,
+        })
+        return
+    end
+
+    if message_id == hash("enable_planar_reflection") or message_id == hash("enable_floor_reflection") then
+        self.planar_reflection_enabled = message.enabled ~= false
+        if message.plane then
+            local p = message.plane
+            assert(p.x*p.x + p.y*p.y + p.z*p.z > 0, "Reflection plane requires a nonzero normal")
+            self.planar_plane = p
+        end
+        if message.strength then self.planar_strength = message.strength end
+        return
+    end
 
     if fake_real_glass.on_message(self.fake_glass, message_id, message) then
         return
@@ -294,7 +420,9 @@ function on_message(self, message_id, message)
         update_clear_color(state, message.color)
     elseif message_id == MSG_WINDOW_RESIZED then
         update_state(state)
-        fake_real_glass.resize(self.fake_glass, state.window_width, state.window_height)
+        if self.shared_glass_enabled ~= false then
+            fake_real_glass.resize(self.fake_glass, state.window_width, state.window_height)
+        end
     elseif message_id == MSG_SET_VIEW_PROJ then
         camera.view = message.view
         self.camera_projection = message.projection or vmath.matrix4()

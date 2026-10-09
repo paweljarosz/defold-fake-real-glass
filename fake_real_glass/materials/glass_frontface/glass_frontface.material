@@ -77,15 +77,14 @@ fragment_constants {
   value {
     x: 0.75
     y: 1.0
+    z: 1.0
   }
 }
 fragment_constants {
-  name: "light"
+  name: "specular_params"
   type: CONSTANT_TYPE_USER
   value {
-    y: 3.0
-    z: 3.0
-    w: 64.0
+    x: 64.0
   }
 }
 fragment_constants {
@@ -132,50 +131,12 @@ samplers {
   max_anisotropy: 0.0
 }
 samplers {
-  name: "u_probe_px"
+  name: "u_probe"
   wrap_u: WRAP_MODE_CLAMP_TO_EDGE
   wrap_v: WRAP_MODE_CLAMP_TO_EDGE
   filter_min: FILTER_MODE_MIN_LINEAR
   filter_mag: FILTER_MODE_MAG_LINEAR
-  max_anisotropy: 0.0
 }
-samplers {
-  name: "u_probe_nx"
-  wrap_u: WRAP_MODE_CLAMP_TO_EDGE
-  wrap_v: WRAP_MODE_CLAMP_TO_EDGE
-  filter_min: FILTER_MODE_MIN_LINEAR
-  filter_mag: FILTER_MODE_MAG_LINEAR
-  max_anisotropy: 0.0
-}
-samplers {
-  name: "u_probe_py"
-  wrap_u: WRAP_MODE_CLAMP_TO_EDGE
-  wrap_v: WRAP_MODE_CLAMP_TO_EDGE
-  filter_min: FILTER_MODE_MIN_LINEAR
-  filter_mag: FILTER_MODE_MAG_LINEAR
-  max_anisotropy: 0.0
-}
-samplers {
-  name: "u_probe_ny"
-  wrap_u: WRAP_MODE_CLAMP_TO_EDGE
-  wrap_v: WRAP_MODE_CLAMP_TO_EDGE
-  filter_min: FILTER_MODE_MIN_LINEAR
-  filter_mag: FILTER_MODE_MAG_LINEAR
-  max_anisotropy: 0.0
-}
-samplers {
-  name: "u_probe_pz"
-  wrap_u: WRAP_MODE_CLAMP_TO_EDGE
-  wrap_v: WRAP_MODE_CLAMP_TO_EDGE
-  filter_min: FILTER_MODE_MIN_LINEAR
-  filter_mag: FILTER_MODE_MAG_LINEAR
-  max_anisotropy: 0.0
-}
-samplers {
-  name: "u_probe_nz"
-  wrap_u: WRAP_MODE_CLAMP_TO_EDGE
-  wrap_v: WRAP_MODE_CLAMP_TO_EDGE
-  filter_min: FILTER_MODE_MIN_LINEAR
-  filter_mag: FILTER_MODE_MAG_LINEAR
-  max_anisotropy: 0.0
-}
+
+vertex_constants { name: "world" type: CONSTANT_TYPE_WORLD }
+vertex_constants { name: "normal_matrix" type: CONSTANT_TYPE_NORMAL }

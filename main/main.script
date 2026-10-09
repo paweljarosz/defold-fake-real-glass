@@ -1,74 +1,16 @@
-local fake_real_glass = require "fake_real_glass.fake_real_glass"
-
-local PROBE_MODE = fake_real_glass.PROBE_MODE
-
-local SPECULAR_POWER = 64.0
-local REFLECTION_PROBE_POSITION = vmath.vector3(0, 3, -1)
-local REFLECTION_PROBE_EXTENTS = vmath.vector3(4, 3, 4)
-local REFLECTION_PROBE_SIZE = 256
-local REFLECTION_PROBE_MODE = PROBE_MODE.EVERY_FRAME
-
-local MODELS = {
-	"/glass_diamond_cube#model",
-	"/glass_monkey#model",
-	"/glass_cylinder#model",
-	"/glass_torus#model",
-	"/plane#quad",
-	"/plane1#quad",
-	"/plane2#quad",
-	"/plane3#quad",
-	"/plane4#quad",
-	"/spheres#left",
-	"/spheres#right",
-	"/spheres#left1",
-	"/spheres#right1"
-}
-
-local function set_light(light_pos)
-	local glass_light = vmath.vector4(light_pos.x, light_pos.y, light_pos.z, SPECULAR_POWER)
-	for _, url in ipairs(MODELS) do
-		go.set(url, "light", glass_light)
-	end
-end
-
 function init(self)
-	msg.post(".", "acquire_input_focus")
-	msg.post("camera", "acquire_camera_focus")
-
-	go.animate("/glass_diamond_cube", "euler.y", go.PLAYBACK_LOOP_FORWARD, 360, go.EASING_INOUTQUAD, 6)
-	go.animate("/glass_monkey", "euler.y", go.PLAYBACK_LOOP_FORWARD, 360, go.EASING_INOUTQUAD, 6)
-	go.animate("/glass_torus", "euler.y", go.PLAYBACK_LOOP_FORWARD, 360, go.EASING_INOUTQUAD, 6)
-
-	go.animate("/spheres", "position.y", go.PLAYBACK_LOOP_PINGPONG, 4, go.EASING_INOUTQUAD, 8)
-	go.animate("/spheres", "euler.y", go.PLAYBACK_LOOP_FORWARD, 360, go.EASING_INOUTQUAD, 16)
-
-	go.set("/spheres#right", "tint", vmath.vector4(0, 0.5, 1, 1))
-	go.set("/spheres#left", "tint", vmath.vector4(1, 0.5, 0, 1))
-	go.set("/spheres#right1", "tint", vmath.vector4(0, 0.5, 1, 1))
-	go.set("/spheres#left1", "tint", vmath.vector4(1, 0.5, 0, 1))
-	go.set("/plane3#quad", "tint", vmath.vector4(0, 0.5, 1, 1))
-	go.set("/plane2#quad", "tint", vmath.vector4(1, 0.5, 0, 1))
-
-	self.light = vmath.vector4(0, 3, 3, 0)
-	msg.post("@render:", "set_probe_settings", {
-		position = REFLECTION_PROBE_POSITION,
-		extents = REFLECTION_PROBE_EXTENTS,
-		size = REFLECTION_PROBE_SIZE,
-		mode = REFLECTION_PROBE_MODE,
-	})
-	set_light(self.light)
-
-	--profiler.enable(true)
-	--profiler.enable_ui(true)
+    msg.post("camera", "acquire_camera_focus")
+    msg.post("@render:", "enable_planar_reflection", { enabled = true })
+    go.set("/plane#quad", "tint", vmath.vector4(0.055, 0.065, 0.08, 1))
+    msg.post("@render:", "clear_color", { color = vmath.vector4(0.002, 0.003, 0.005, 1) })
+    msg.post("@render:", "enable_shared_glass", { enabled = false })
 end
 
-function on_input(self, action_id, action)
-	self.light.x = 2 * ((action.x - 480) / 480)
-	self.light.y = 2.5 + (2 * ((action.y - 320) / 320))
-
-	set_light(self.light)
-
-	if REFLECTION_PROBE_MODE == PROBE_MODE.CAPTURE_ONCE then
-		msg.post("@render:", "set_probe_settings", { rebuild = true })
-	end
+function update(self, dt)
+    for _, side in ipairs({ "left", "right" }) do
+        msg.post("@render:", "set_sphere_probe", {
+            tag = "glass_sphere_" .. side,
+            position = go.get_world_position("/glass_sphere_" .. side),
+        })
+    end
 end
